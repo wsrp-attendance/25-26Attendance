@@ -1,83 +1,116 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>WSRP Check-In with GPS</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 400px;
-      margin: 40px auto;
-      padding: 20px;
-      border: 1px solid #ddd;
-      border-radius: 8px;
-      background: #f9f9f9;
+<script>
+  const schoolLat = 42.06099;
+  const schoolLng = -87.94404;
+  const maxDistanceMeters = 100;
+
+  function haversine(lat1, lon1, lat2, lon2) {
+    const R = 6371000;
+    const toRad = x => x * Math.PI / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+              Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function toggleErrorDetails() {
+    const details = document.getElementById('errorDetails');
+    const toggle = document.getElementById('toggleDetails');
+    if (details.style.display === 'none') {
+      details.style.display = 'block';
+      toggle.textContent = 'Hide Details ▲';
+    } else {
+      details.style.display = 'none';
+      toggle.textContent = 'Show Details ▼';
     }
-    label {
-      font-weight: bold;
+  }
+
+  async function checkLocation() {
+    const status = document.getElementById("status");
+    const formFrame = document.getElementById("form");
+    const retryBtn = document.getElementById("retryBtn");
+    const spinner = document.getElementById("spinner");
+    const errorDetails = document.getElementById("errorDetails");
+    const toggleDetails = document.getElementById("toggleDetails");
+
+    formFrame.style.display = "none";
+    retryBtn.style.display = "none";
+    errorDetails.style.display = "none";
+    toggleDetails.style.display = "none";
+    status.textContent = "Checking your location...";
+    spinner.style.display = "block";
+
+    if (!navigator.geolocation) {
+      spinner.style.display = "none";
+      status.textContent = "Geolocation is not supported by your browser.";
+      retryBtn.style.display = "inline-block";
+      return;
     }
-    input[type="text"], select {
-      width: 100%;
-      padding: 8px;
-      margin-top: 4px;
-      margin-bottom: 16px;
-      border: 1px solid #ccc;
-      border-radius: 4px;
-      box-sizing: border-box;
-      font-size: 16px;
+
+    try {
+      const permission = await navigator.permissions.query({ name: 'geolocation' });
+      if (permission.state === 'denied') {
+        spinner.style.display = "none";
+        status.innerHTML = "Location permission is blocked. Please enable it in your browser settings and reload the page.";
+        retryBtn.style.display = "inline-block";
+        return;
+      }
+    } catch (e) {
+      // continue if Permissions API not supported
     }
-    button {
-      background-color: #007bff;
-      color: white;
-      padding: 12px;
-      border: none;
-      border-radius: 4px;
-      font-size: 16px;
-      cursor: pointer;
-      width: 100%;
-    }
-    button:hover {
-      background-color: #0056b3;
-    }
-  </style>
-</head>
-<body>
-  <h2>WSRP Check-In</h2>
 
-  <form id="gpsForm"
-        action="https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/formResponse"
-        method="POST" target="hidden_iframe" novalidate>
-
-    <!-- Hidden inputs for GPS -->
-    <input type="hidden" name="entry.1958119656" id="lat">
-    <input type="hidden" name="entry.1070061203" id="lng">
-
-    <!-- Visible fields -->
-    <label for="name">Name:</label>
-    <input type="text" name="entry.1050040896" id="name" required>
-
-    <label for="role">Role:</label>
-    <select name="entry.279570856" id="role" required>
-      <option value="">Select...</option>
-      <option value="Student">Student</option>
-      <option value="Mentor">Mentor</option>
-    </select>
-
-    <button type="submit">Check In</button>
-  </form>
-
-  <iframe name="hidden_iframe" style="display:none;"></iframe>
-
-  <script>
     navigator.geolocation.getCurrentPosition(
       position => {
-        document.getElementById("lat").value = position.coords.latitude;
-        document.getElementById("lng").value = position.coords.longitude;
+        spinner.style.display = "none";
+
+        const { latitude, longitude } = position.coords;
+        const distance = haversine(latitude, longitude, schoolLat, schoolLng);
+
+        if (distance <= maxDistanceMeters) {
+          status.textContent = "Location verified. Welcome to the WSRP Shop. You may complete the form.";
+          formFrame.style.display = "block";
+        } else {
+          status.textContent = "You are not on school grounds. Form access is restricted.";
+          retryBtn.style.display = "inline-block";
+        }
       },
       error => {
-        alert("Failed to get GPS location. Please allow location access to submit your check-in.");
+        spinner.style.display = "none";
+
+        let friendlyMessage = "An unknown error occurred while retrieving your location.";
+        let detailsMessage = `Error code: ${error.code}\nMessage: ${error.message}`;
+
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            friendlyMessage = "Location permission denied. Please allow access and reload the page.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            friendlyMessage = "Location information is unavailable. Try again later.";
+            break;
+          case error.TIMEOUT:
+            friendlyMessage = "Location request timed out. Please retry.";
+            break;
+        }
+
+        if (error.code === error.PERMISSION_DENIED) {
+          status.innerHTML = `${friendlyMessage}<br><br><b>Tip:</b> Check your browser's site settings.`;
+        } else {
+          status.textContent = friendlyMessage;
+        }
+
+        retryBtn.style.display = "inline-block";
+        errorDetails.textContent = detailsMessage;
+        errorDetails.style.display = "none";
+        toggleDetails.style.display = "inline-block";
+        toggleDetails.textContent = "Show Details ▼";
+
+        console.error("Geolocation error:", error);
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
     );
-  </script>
-</body>
-</html>
+  }
+
+  document.addEventListener("DOMContentLoaded", checkLocation);
+</script>
