@@ -44,6 +44,10 @@
       font-size: 0.9em;
       margin-top: 8px;
       display: inline-block;
+      outline-offset: 2px;
+    }
+    #toggleDetails:focus {
+      outline: 2px solid #007bff;
     }
   </style>
   <script>
@@ -69,9 +73,11 @@
       if (details.style.display === 'none') {
         details.style.display = 'block';
         toggle.textContent = 'Hide Details ▲';
+        toggle.setAttribute('aria-pressed', 'true');
       } else {
         details.style.display = 'none';
         toggle.textContent = 'Show Details ▼';
+        toggle.setAttribute('aria-pressed', 'false');
       }
     }
 
@@ -155,12 +161,11 @@
           retryBtn.style.display = "inline-block";
 
           // Show the "Show Details" toggle and error details box
-          const errorDetails = document.getElementById("errorDetails");
-          const toggleDetails = document.getElementById("toggleDetails");
           errorDetails.textContent = detailsMessage;
           errorDetails.style.display = "none";  // hidden by default
           toggleDetails.style.display = "inline-block";
           toggleDetails.textContent = "Show Details ▼";
+          toggleDetails.setAttribute('aria-pressed', 'false');
 
           // Log full error to console for developers
           console.error("Geolocation error:", error);
@@ -169,6 +174,18 @@
         { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
       );
     }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      const toggle = document.getElementById('toggleDetails');
+      toggle.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          toggleErrorDetails();
+        }
+      });
+      // Run initial location check
+      checkLocation();
+    });
   </script>
 </head>
 <body>
@@ -181,7 +198,15 @@
   <button id="retryBtn" onclick="checkLocation()">Retry Location Check</button>
 
   <!-- Toggle to show/hide detailed error -->
-  <span id="toggleDetails" onclick="toggleErrorDetails()" style="display:none" role="button" tabindex="0" aria-pressed="false" aria-label="Toggle detailed error message"></span>
+  <span
+    id="toggleDetails"
+    onclick="toggleErrorDetails()"
+    style="display:none"
+    role="button"
+    tabindex="0"
+    aria-pressed="false"
+    aria-label="Toggle detailed error message"
+  ></span>
 
   <!-- Detailed error message container -->
   <pre id="errorDetails"></pre>
@@ -194,9 +219,5 @@
     frameborder="0"
     style="display:none"
   ></iframe>
-
-  <script>
-    document.addEventListener("DOMContentLoaded", checkLocation);
-  </script>
 </body>
 </html>
