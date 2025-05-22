@@ -1,77 +1,31 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Location-Based Form Access</title>
+  <title>WSRP Location Check-In</title>
   <style>
-    #retryBtn {
-      margin-top: 10px;
-      cursor: pointer;
-      padding: 6px 12px;
-      font-size: 14px;
-      display: none;
+    /* Spinner animation */
+    @keyframes spin {
+      to { transform: rotate(360deg); }
     }
-    .spinner {
-      margin: 10px auto 20px auto;
+    #spinner {
       width: 40px;
       height: 40px;
       border: 5px solid #ccc;
       border-top-color: #007bff;
       border-radius: 50%;
       animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    #errorDetails {
+      margin: 10px auto 20px auto;
       display: none;
-      margin-top: 8px;
-      font-family: monospace;
-      font-size: 0.9em;
-      background: #f8f8f8;
-      border: 1px solid #ddd;
-      padding: 8px;
-      white-space: pre-wrap;
-      max-height: 150px;
-      overflow-y: auto;
-      border-radius: 4px;
-    }
-    #toggleDetails {
-      color: #007bff;
-      cursor: pointer;
-      user-select: none;
-      text-decoration: underline;
-      font-size: 0.9em;
-      margin-top: 8px;
-      display: inline-block;
     }
   </style>
-</head>
-<body>
-  <h2>WSRP Student/Mentor Check-In</h2>
-
-  <p id="status" aria-live="polite">Checking your location...</p>
-
-  <div id="spinner" class="spinner" style="display:none"></div>
-
-  <button id="retryBtn" onclick="location.reload()">Retry Location Check</button>
-
-  <span id="toggleDetails" onclick="toggleErrorDetails()" style="display:none" role="button" tabindex="0" aria-pressed="false" aria-label="Toggle detailed error message"></span>
-
-  <pre id="errorDetails"></pre>
-
-  <iframe
-    id="form"
-    width="100%"
-    height="800"
-    frameborder="0"
-    style="display:none"
-  ></iframe>
-
   <script>
     const schoolLat = 42.06099;
     const schoolLng = -87.94404;
     const maxDistanceMeters = 100;
-
+    
+    // Generate a unique ID for this user session
+    const uid = 'uid-' + Date.now() + '-' + Math.random().toString(36).substring(2, 8);
+    
     function haversine(lat1, lon1, lat2, lon2) {
       const R = 6371000;
       const toRad = x => x * Math.PI / 180;
@@ -83,111 +37,65 @@
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     }
-
-    function toggleErrorDetails() {
-      const details = document.getElementById('errorDetails');
-      const toggle = document.getElementById('toggleDetails');
-      if (details.style.display === 'none') {
-        details.style.display = 'block';
-        toggle.textContent = 'Hide Details ▲';
-      } else {
-        details.style.display = 'none';
-        toggle.textContent = 'Show Details ▼';
-      }
-    }
-
-    async function checkLocation() {
+    
+    function checkLocationAndInjectForms() {
       const status = document.getElementById("status");
-      const formFrame = document.getElementById("form");
-      const retryBtn = document.getElementById("retryBtn");
       const spinner = document.getElementById("spinner");
-      const errorDetails = document.getElementById("errorDetails");
-      const toggleDetails = document.getElementById("toggleDetails");
+      const visibleForm = document.getElementById("visibleForm");
 
-      formFrame.style.display = "none";
-      retryBtn.style.display = "none";
-      errorDetails.style.display = "none";
-      toggleDetails.style.display = "none";
       status.textContent = "Checking your location...";
       spinner.style.display = "block";
 
       if (!navigator.geolocation) {
         spinner.style.display = "none";
         status.textContent = "Geolocation is not supported by your browser.";
-        retryBtn.style.display = "inline-block";
         return;
       }
 
-      try {
-        const permission = await navigator.permissions.query({ name: 'geolocation' });
-        if (permission.state === 'denied') {
-          spinner.style.display = "none";
-          status.innerHTML = "Location permission is blocked. Please enable it in your browser settings and reload the page.";
-          retryBtn.style.display = "inline-block";
-          return;
+      navigator.geolocation.getCurrentPosition(position => {
+        const { latitude, longitude } = position.coords;
+        const distance = haversine(latitude, longitude, schoolLat, schoolLng);
+        spinner.style.display = "none";
+
+        if (distance <= maxDistanceMeters) {
+          status.textContent = "You are on school grounds. Please complete the form.";
+
+          // Visible Form URL with UID prefilled
+          const visibleFormURL = "https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/viewform" +
+            "?entry.1958119656=" + encodeURIComponent(uid);
+          visibleForm.src = visibleFormURL;
+          visibleForm.style.display = "block";
+
+          // Hidden Form submission URL (just GET with parameters)
+          const hiddenFormURL = "https://docs.google.com/forms/d/e/1FAIpQLSey9ENixvSepj6ac5cLKZ7OKlcg0lf45sJDQ9q35j40L9H8BQ/formResponse" +
+            "?entry.1366409067=" + encodeURIComponent(latitude) +
+            "&entry.37670907=" + encodeURIComponent(longitude) +
+            "&entry.185482874=" + encodeURIComponent(uid);
+          const hiddenFrame = document.createElement("iframe");
+          hiddenFrame.style.display = "none";
+          hiddenFrame.src = hiddenFormURL;
+          document.body.appendChild(hiddenFrame);
+
+        } else {
+          status.textContent = "You are not on school grounds. Form access denied.";
         }
-      } catch (e) {
-        // Continue if Permissions API not supported
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        position => {
-          spinner.style.display = "none";
-
-          const { latitude, longitude } = position.coords;
-          const distance = haversine(latitude, longitude, schoolLat, schoolLng);
-
-          if (distance <= maxDistanceMeters) {
-            const lat = latitude.toFixed(6);
-            const lng = longitude.toFixed(6);
-
-            const formURL = `https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/viewform?entry.1958119656=${lat}&entry.1070061203=${lng}`;
-
-            formFrame.src = formURL;
-            formFrame.style.display = "block";
-            status.textContent = "Location verified. Welcome to the WSRP Shop. You may complete the form.";
-          } else {
-            status.textContent = "You are not on school grounds. Form access is restricted.";
-            retryBtn.style.display = "inline-block";
-          }
-        },
-        error => {
-          spinner.style.display = "none";
-
-          let friendlyMessage = "An unknown error occurred while retrieving your location.";
-          let detailsMessage = `Error code: ${error.code}\nMessage: ${error.message}`;
-
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              friendlyMessage = "Location permission denied. Please allow access and reload the page.";
-              break;
-            case error.POSITION_UNAVAILABLE:
-              friendlyMessage = "Location information is unavailable. Try again later.";
-              break;
-            case error.TIMEOUT:
-              friendlyMessage = "Location request timed out. Please retry.";
-              break;
-          }
-
-          if (error.code === error.PERMISSION_DENIED) {
-            status.innerHTML = `${friendlyMessage}<br><br><b>Tip:</b> Check your browser's site settings.`;
-          } else {
-            status.textContent = friendlyMessage;
-          }
-
-          retryBtn.style.display = "inline-block";
-          errorDetails.textContent = detailsMessage;
-          errorDetails.style.display = "none";
-          toggleDetails.style.display = "inline-block";
-          toggleDetails.textContent = "Show Details ▼";
-
-          console.error("Geolocation error:", error);
-        },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-      );
+      }, err => {
+        spinner.style.display = "none";
+        status.textContent = "Unable to retrieve location: " + err.message;
+      }, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      });
     }
 
-    document.addEventListener("DOMContentLoaded", checkLocation);
+    document.addEventListener("DOMContentLoaded", checkLocationAndInjectForms);
   </script>
+</head>
+<body>
+  <h2>WSRP Check-In</h2>
+  <p id="status">Initializing...</p>
+  <div id="spinner"></div>
+  <iframe id="visibleForm" width="100%" height="800" style="display:none;border:none;"></iframe>
 </body>
 </html>
