@@ -117,7 +117,7 @@
           const distance = haversine(latitude, longitude, schoolLat, schoolLng);
 
           if (distance <= maxDistanceMeters) {
-            status.textContent = "Location verified. Welcome to the WSRP SHop. You may complete the form.";
+            status.textContent = "Location verified. Welcome to the WSRP Shop. You may complete the form.";
             formFrame.style.display = "block";
           } else {
             status.textContent = "You are not on school grounds. Form access is restricted.";
