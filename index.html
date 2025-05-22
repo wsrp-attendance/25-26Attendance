@@ -49,6 +49,7 @@
       display: inline-block;
     }
   </style>
+
   <script>
     const schoolLat = 42.06099;
     const schoolLng = -87.94404;
@@ -78,8 +79,8 @@
       }
     }
 
-    async function checkLocation() {
-      console.log("checkLocation() called");
+    function checkLocation() {
+      console.log("checkLocation triggered");
 
       const status = document.getElementById("status");
       const formFrame = document.getElementById("form");
@@ -88,11 +89,10 @@
       const errorDetails = document.getElementById("errorDetails");
       const toggleDetails = document.getElementById("toggleDetails");
 
-      // Reset UI state
       formFrame.style.display = "none";
       retryBtn.style.display = "none";
       spinner.style.display = "block";
-      status.innerHTML = "Checking your location...";
+      status.textContent = "Checking your location...";
       errorDetails.style.display = "none";
       errorDetails.textContent = "";
       toggleDetails.style.display = "none";
@@ -105,17 +105,16 @@
         return;
       }
 
-      try {
-        const permission = await navigator.permissions.query({ name: 'geolocation' });
+      navigator.permissions?.query({ name: 'geolocation' }).then(permission => {
         if (permission.state === 'denied') {
           spinner.style.display = "none";
           status.innerHTML = "Location permission is blocked. Please enable it in your browser settings and reload the page.";
           retryBtn.style.display = "inline-block";
           return;
         }
-      } catch (e) {
-        // Permissions API not supported, continue
-      }
+      }).catch(() => {
+        // Ignore unsupported Permissions API
+      });
 
       navigator.geolocation.getCurrentPosition(
         position => {
@@ -164,6 +163,11 @@
         { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
       );
     }
+
+    // Expose checkLocation globally so retry button can access it
+    window.checkLocation = checkLocation;
+
+    document.addEventListener("DOMContentLoaded", checkLocation);
   </script>
 </head>
 <body>
@@ -187,9 +191,5 @@
     frameborder="0"
     style="display:none"
   ></iframe>
-
-  <script>
-    document.addEventListener("DOMContentLoaded", checkLocation);
-  </script>
 </body>
 </html>
