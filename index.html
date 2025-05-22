@@ -50,8 +50,10 @@
     const schoolLng = -87.94404;
     const maxDistanceMeters = 100;
 
-    // Hidden form URL and entry IDs
+    // Hidden form POST URL (note: use /formResponse for direct submission)
     const hiddenFormURL = "https://docs.google.com/forms/d/e/1FAIpQLSey9ENixvSepj6ac5cLKZ7OKlcg0lf45sJDQ9q35j40L9H8BQ/formResponse";
+
+    // Hidden form entry IDs
     const hiddenUIDEntry = "entry.185482874";
     const hiddenLatEntry = "entry.1366409067";
     const hiddenLngEntry = "entry.376709078";
@@ -73,7 +75,7 @@
     }
 
     function generateUID() {
-      // Example: generate a random 8-digit hex string
+      // Generate a random 8-digit hex string as UID
       return Math.floor((1 + Math.random()) * 0x100000000).toString(16).substring(1);
     }
 
@@ -95,7 +97,6 @@
       params.append(hiddenLatEntry, lat);
       params.append(hiddenLngEntry, lng);
 
-      // Use fetch to POST to the hidden form
       try {
         await fetch(hiddenFormURL, {
           method: 'POST',
@@ -107,7 +108,7 @@
         });
         console.log("Hidden form submitted");
       } catch (e) {
-        console.warn("Hidden form submission failed (expected due to CORS)", e);
+        console.warn("Hidden form submission failed (likely due to CORS)", e);
       }
     }
 
@@ -143,7 +144,7 @@
           return;
         }
       } catch (e) {
-        // Continue if Permissions API not supported
+        // Permissions API not supported, continue
       }
 
       navigator.geolocation.getCurrentPosition(
@@ -162,7 +163,7 @@
             // Submit hidden form with UID + GPS
             await submitHiddenForm(uid, latitude, longitude);
 
-            // Prefill visible form with UID in URL and show iframe
+            // Prefill visible form with UID and show iframe
             const visibleFormURL = `${visibleFormBaseURL}?${visibleUIDEntry}=${encodeURIComponent(uid)}`;
             formFrame.src = visibleFormURL;
             formFrame.style.display = "block";
