@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Location-Based Form Access</title>
+  <script>
+    const schoolLat = 42.06099;
+    const schoolLng = -87.94404;
+    const maxDistanceMeters = 100;
+
+    function haversine(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const toRad = x => x * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    async function checkLocation() {
+      const status = document.getElementById("status");
+      const formFrame = document.getElementById("form");
+      const retryBtn = document.getElementById("retryBtn");
+
+      formFrame.style.display = "none";
+      status.textContent = "Checking your location...";
+      retryBtn.style.display = "none";
+
+      if (!navigator.geolocation) {
+        status.textContent = "Geolocation is not supported by your browser.";
+        retryBtn.style.display = "inline-block";
+        return;
+      }
+
+      try {
+        const permission = await navigator.permissions.query({ name: 'geolocation' });
+        if (permission.state === 'denied') {
+          status.innerHTML = "Location permission is blocked. Please enable it in your browser settings and reload the page.";
+          retryBtn.style.display = "inline-block";
+          return;
+        }
+      } catch (e) {
+        // Permissions API not supported
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        position => {
+          const { latitude, longitude } = position.coords;
+          const distance = haversine(latitude, longitude, schoolLat, schoolLng);
+
+          if (distance <= maxDistanceMeters) {
+            status.textContent = "Location verified. You may complete the form.";
+            formFrame.style.display = "block";
+          } else {
+            status.textContent = "You are not on school grounds. Form access is restricted.";
+            retryBtn.style.display = "inline-block";
+          }
+        },
+        error => {
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              status.innerHTML = "Location permission denied. Please allow access and reload the page.<br><br><b>Tip:</b> Check your browser's site settings.";
+              break;
+            case error.POSITION_UNAVAILABLE:
+              status.textContent = "Location information is unavailable. Try again later.";
+              break;
+            case error.TIMEOUT:
+              status.textContent = "Location request timed out. Please retry.";
+              break;
+            default:
+              status.textContent = "An unknown error occurred while retrieving your location.";
+          }
+          retryBtn.style.display = "inline-block";
+        },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+      );
+    }
+  </script>
+  <style>
+    #retryBtn {
+      margin-top: 10px;
+      display: none;
+      cursor: pointer;
+      padding: 6px 12px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Student Check-In</h2>
+  <p id="status">Checking your location...</p>
+  <button id="retryBtn" onclick="location.reload()">Retry Location Check</button>
+  <iframe
+    id="form"
+    src="https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/viewform"
+    width="100%"
+    height="600"
+    frameborder="0"
+    style="display:none"
+  ></iframe>
+  <script>
+    document.addEventListener("DOMContentLoaded", checkLocation);
+  </script>
+</body>
+</html>
