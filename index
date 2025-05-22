@@ -1,0 +1,26 @@
+<form
+  id="hiddenForm"
+  action="https://docs.google.com/forms/d/e/1FAIpQLSey9ENixvSepj6ac5cLKZ7OKlcg0lf45sJDQ9q35j40L9H8BQ/formResponse"
+  method="POST"
+  target="hidden_iframe"
+  style="display:none;"
+>
+  <input type="hidden" name="entry.185482874" id="hiddenUID" value="">
+  <input type="hidden" name="entry.1366409067" id="hiddenLat" value="">
+  <input type="hidden" name="entry.376709078" id="hiddenLng" value="">
+</form>
+
+<iframe name="hidden_iframe" style="display:none;"></iframe>
+
+<script>
+  function submitHiddenForm(uid, lat, lng) {
+    document.getElementById('hiddenUID').value = uid;
+    document.getElementById('hiddenLat').value = lat;
+    document.getElementById('hiddenLng').value = lng;
+    document.getElementById('hiddenForm').submit();
+    console.log('Hidden form submitted');
+  }
+
+  // Example submit call
+  submitHiddenForm('UID-123456', 42.123456, -87.654321);
+</script>
