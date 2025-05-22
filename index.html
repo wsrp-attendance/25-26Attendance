@@ -10,6 +10,7 @@
       padding: 6px 12px;
       font-size: 14px;
     }
+
     .spinner {
       margin: 10px auto 20px auto;
       width: 40px;
@@ -19,10 +20,11 @@
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
+
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-    /* Style for expandable error details */
+
     #errorDetails {
       display: none;
       margin-top: 8px;
@@ -36,6 +38,7 @@
       overflow-y: auto;
       border-radius: 4px;
     }
+
     #toggleDetails {
       color: #007bff;
       cursor: pointer;
@@ -44,10 +47,6 @@
       font-size: 0.9em;
       margin-top: 8px;
       display: inline-block;
-      outline-offset: 2px;
-    }
-    #toggleDetails:focus {
-      outline: 2px solid #007bff;
     }
   </style>
   <script>
@@ -73,15 +72,15 @@
       if (details.style.display === 'none') {
         details.style.display = 'block';
         toggle.textContent = 'Hide Details ▲';
-        toggle.setAttribute('aria-pressed', 'true');
       } else {
         details.style.display = 'none';
         toggle.textContent = 'Show Details ▼';
-        toggle.setAttribute('aria-pressed', 'false');
       }
     }
 
     async function checkLocation() {
+      console.log("checkLocation() called");
+
       const status = document.getElementById("status");
       const formFrame = document.getElementById("form");
       const retryBtn = document.getElementById("retryBtn");
@@ -89,13 +88,15 @@
       const errorDetails = document.getElementById("errorDetails");
       const toggleDetails = document.getElementById("toggleDetails");
 
-      // Reset UI
+      // Reset UI state
       formFrame.style.display = "none";
       retryBtn.style.display = "none";
-      errorDetails.style.display = "none";
-      toggleDetails.style.display = "none";
-      status.textContent = "Checking your location...";
       spinner.style.display = "block";
+      status.innerHTML = "Checking your location...";
+      errorDetails.style.display = "none";
+      errorDetails.textContent = "";
+      toggleDetails.style.display = "none";
+      toggleDetails.textContent = "";
 
       if (!navigator.geolocation) {
         spinner.style.display = "none";
@@ -113,13 +114,12 @@
           return;
         }
       } catch (e) {
-        // Continue if Permissions API not supported
+        // Permissions API not supported, continue
       }
 
       navigator.geolocation.getCurrentPosition(
         position => {
           spinner.style.display = "none";
-
           const { latitude, longitude } = position.coords;
           const distance = haversine(latitude, longitude, schoolLat, schoolLng);
 
@@ -133,8 +133,6 @@
         },
         error => {
           spinner.style.display = "none";
-
-          // Default error message & details container reset
           let friendlyMessage = "An unknown error occurred while retrieving your location.";
           let detailsMessage = `Error code: ${error.code}\nMessage: ${error.message}`;
 
@@ -150,42 +148,22 @@
               break;
           }
 
-          // Show the friendly message with tips if permission denied
           if (error.code === error.PERMISSION_DENIED) {
             status.innerHTML = `${friendlyMessage}<br><br><b>Tip:</b> Check your browser's site settings.`;
           } else {
             status.textContent = friendlyMessage;
           }
 
-          // Show retry button
           retryBtn.style.display = "inline-block";
-
-          // Show the "Show Details" toggle and error details box
           errorDetails.textContent = detailsMessage;
-          errorDetails.style.display = "none";  // hidden by default
           toggleDetails.style.display = "inline-block";
           toggleDetails.textContent = "Show Details ▼";
-          toggleDetails.setAttribute('aria-pressed', 'false');
 
-          // Log full error to console for developers
           console.error("Geolocation error:", error);
-
         },
         { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
       );
     }
-
-    document.addEventListener("DOMContentLoaded", () => {
-      const toggle = document.getElementById('toggleDetails');
-      toggle.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          toggleErrorDetails();
-        }
-      });
-      // Run initial location check
-      checkLocation();
-    });
   </script>
 </head>
 <body>
@@ -197,18 +175,8 @@
 
   <button id="retryBtn" onclick="checkLocation()">Retry Location Check</button>
 
-  <!-- Toggle to show/hide detailed error -->
-  <span
-    id="toggleDetails"
-    onclick="toggleErrorDetails()"
-    style="display:none"
-    role="button"
-    tabindex="0"
-    aria-pressed="false"
-    aria-label="Toggle detailed error message"
-  ></span>
+  <span id="toggleDetails" onclick="toggleErrorDetails()" style="display:none" role="button" tabindex="0" aria-pressed="false" aria-label="Toggle detailed error message"></span>
 
-  <!-- Detailed error message container -->
   <pre id="errorDetails"></pre>
 
   <iframe
@@ -219,5 +187,9 @@
     frameborder="0"
     style="display:none"
   ></iframe>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", checkLocation);
+  </script>
 </body>
 </html>
