@@ -1,26 +1,103 @@
-<form
-  id="hiddenForm"
-  action="https://docs.google.com/forms/d/e/1FAIpQLSey9ENixvSepj6ac5cLKZ7OKlcg0lf45sJDQ9q35j40L9H8BQ/formResponse"
-  method="POST"
-  target="hidden_iframe"
-  style="display:none;"
->
-  <input type="hidden" name="entry.185482874" id="hiddenUID" value="">
-  <input type="hidden" name="entry.1366409067" id="hiddenLat" value="">
-  <input type="hidden" name="entry.376709078" id="hiddenLng" value="">
-</form>
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GPS Form with Hidden Submission Demo</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: 1rem auto; }
+    #status { margin-bottom: 1rem; }
+    iframe { border: 1px solid #ccc; }
+  </style>
+</head>
+<body>
+  <h2>GPS Location + Hidden Form Submission Demo</h2>
+  <div id="status">Checking location...</div>
 
-<iframe name="hidden_iframe" style="display:none;"></iframe>
+  <!-- Visible form iframe -->
+  <iframe
+    id="visibleForm"
+    src=""
+    width="100%"
+    height="600"
+    style="display:none"
+  ></iframe>
 
-<script>
-  function submitHiddenForm(uid, lat, lng) {
-    document.getElementById('hiddenUID').value = uid;
-    document.getElementById('hiddenLat').value = lat;
-    document.getElementById('hiddenLng').value = lng;
-    document.getElementById('hiddenForm').submit();
-    console.log('Hidden form submitted');
-  }
+  <!-- Hidden form -->
+  <form
+    id="hiddenForm"
+    action="https://docs.google.com/forms/d/e/1FAIpQLSey9ENixvSepj6ac5cLKZ7OKlcg0lf45sJDQ9q35j40L9H8BQ/formResponse"
+    method="POST"
+    target="hidden_iframe"
+    style="display:none"
+  >
+    <input type="hidden" name="entry.185482874" id="hiddenUID" value="">
+    <input type="hidden" name="entry.1366409067" id="hiddenLat" value="">
+    <input type="hidden" name="entry.376709078" id="hiddenLng" value="">
+  </form>
 
-  // Example submit call
-  submitHiddenForm('UID-123456', 42.123456, -87.654321);
-</script>
+  <iframe name="hidden_iframe" style="display:none;"></iframe>
+
+  <script>
+    // Your visible form UID field entry ID
+    const visibleUIDEntry = 'entry.1958119656';
+
+    // Visible form URL
+    const visibleFormURL = 'https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/viewform';
+
+    // Utility: generate a random UID string
+    function generateUID() {
+      return 'UID-' + Math.random().toString(36).substr(2, 9);
+    }
+
+    function submitHiddenForm(uid, lat, lng) {
+      document.getElementById('hiddenUID').value = uid;
+      document.getElementById('hiddenLat').value = lat;
+      document.getElementById('hiddenLng').value = lng;
+      document.getElementById('hiddenForm').submit();
+      console.log('Hidden form submitted:', { uid, lat, lng });
+    }
+
+    function prefillVisibleForm(uid) {
+      // Prefill visible form UID field by adding ?entry.xxxxx=UID param
+      const prefillURL = visibleFormURL + '?' + encodeURIComponent(visibleUIDEntry) + '=' + encodeURIComponent(uid);
+      const iframe = document.getElementById('visibleForm');
+      iframe.src = prefillURL;
+      iframe.style.display = 'block';
+    }
+
+    function updateStatus(text) {
+      document.getElementById('status').textContent = text;
+    }
+
+    function startProcess() {
+      if (!navigator.geolocation) {
+        updateStatus('Geolocation not supported by your browser.');
+        return;
+      }
+
+      updateStatus('Locating...');
+
+      navigator.geolocation.getCurrentPosition(position => {
+        const { latitude, longitude } = position.coords;
+        updateStatus(`Location found: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+
+        const uid = generateUID();
+
+        // Prefill and show visible form with UID
+        prefillVisibleForm(uid);
+
+        // Submit hidden form with UID + GPS
+        submitHiddenForm(uid, latitude.toFixed(6), longitude.toFixed(6));
+      }, error => {
+        updateStatus('Error getting location: ' + error.message);
+      }, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      });
+    }
+
+    // Run on page load
+    window.onload = startProcess;
+  </script>
+</body>
+</html>
