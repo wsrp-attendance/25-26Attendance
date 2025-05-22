@@ -10,7 +10,6 @@
       padding: 6px 12px;
       font-size: 14px;
     }
-
     .spinner {
       margin: 10px auto 20px auto;
       width: 40px;
@@ -20,11 +19,9 @@
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
-
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-
     #errorDetails {
       display: none;
       margin-top: 8px;
@@ -38,7 +35,6 @@
       overflow-y: auto;
       border-radius: 4px;
     }
-
     #toggleDetails {
       color: #007bff;
       cursor: pointer;
@@ -49,11 +45,11 @@
       display: inline-block;
     }
   </style>
-
   <script>
     const schoolLat = 42.06099;
     const schoolLng = -87.94404;
     const maxDistanceMeters = 100;
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
     function haversine(lat1, lon1, lat2, lon2) {
       const R = 6371000;
@@ -79,9 +75,7 @@
       }
     }
 
-    function checkLocation() {
-      console.log("checkLocation triggered");
-
+    async function checkLocation() {
       const status = document.getElementById("status");
       const formFrame = document.getElementById("form");
       const retryBtn = document.getElementById("retryBtn");
@@ -89,14 +83,13 @@
       const errorDetails = document.getElementById("errorDetails");
       const toggleDetails = document.getElementById("toggleDetails");
 
+      // Reset UI
       formFrame.style.display = "none";
       retryBtn.style.display = "none";
-      spinner.style.display = "block";
-      status.textContent = "Checking your location...";
       errorDetails.style.display = "none";
-      errorDetails.textContent = "";
       toggleDetails.style.display = "none";
-      toggleDetails.textContent = "";
+      status.textContent = "Checking your location...";
+      spinner.style.display = "block";
 
       if (!navigator.geolocation) {
         spinner.style.display = "none";
@@ -105,16 +98,20 @@
         return;
       }
 
-      navigator.permissions?.query({ name: 'geolocation' }).then(permission => {
+      try {
+        const permission = await navigator.permissions.query({ name: 'geolocation' });
         if (permission.state === 'denied') {
           spinner.style.display = "none";
-          status.innerHTML = "Location permission is blocked. Please enable it in your browser settings and reload the page.";
+          let safariNote = isSafari
+            ? `<br><br><b>Safari Tip:</b> Click “Safari > Settings for This Website…” and set Location Access to “Allow.”`
+            : '';
+          status.innerHTML = "Location permission is blocked. Please enable it in your browser settings and reload the page." + safariNote;
           retryBtn.style.display = "inline-block";
           return;
         }
-      }).catch(() => {
-        // Ignore unsupported Permissions API
-      });
+      } catch (e) {
+        // Continue if Permissions API not supported
+      }
 
       navigator.geolocation.getCurrentPosition(
         position => {
@@ -138,6 +135,11 @@
           switch (error.code) {
             case error.PERMISSION_DENIED:
               friendlyMessage = "Location permission denied. Please allow access and reload the page.";
+              if (isSafari) {
+                friendlyMessage += "<br><br><b>Safari Tip:</b> Click “Safari > Settings for This Website…” and set Location Access to “Allow.”";
+              } else {
+                friendlyMessage += "<br><br><b>Tip:</b> Check your browser's site settings.";
+              }
               break;
             case error.POSITION_UNAVAILABLE:
               friendlyMessage = "Location information is unavailable. Try again later.";
@@ -147,42 +149,25 @@
               break;
           }
 
-          if (error.code === error.PERMISSION_DENIED) {
-            status.innerHTML = `${friendlyMessage}<br><br><b>Tip:</b> Check your browser's site settings.`;
-          } else {
-            status.textContent = friendlyMessage;
-          }
-
+          status.innerHTML = friendlyMessage;
           retryBtn.style.display = "inline-block";
           errorDetails.textContent = detailsMessage;
           toggleDetails.style.display = "inline-block";
           toggleDetails.textContent = "Show Details ▼";
-
           console.error("Geolocation error:", error);
         },
         { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
       );
     }
-
-    // Expose checkLocation globally so retry button can access it
-    window.checkLocation = checkLocation;
-
-    document.addEventListener("DOMContentLoaded", checkLocation);
   </script>
 </head>
 <body>
   <h2>WSRP Student/Mentor Check-In</h2>
-
   <p id="status" aria-live="polite">Checking your location...</p>
-
   <div id="spinner" class="spinner" style="display:none"></div>
-
   <button id="retryBtn" onclick="checkLocation()">Retry Location Check</button>
-
   <span id="toggleDetails" onclick="toggleErrorDetails()" style="display:none" role="button" tabindex="0" aria-pressed="false" aria-label="Toggle detailed error message"></span>
-
   <pre id="errorDetails"></pre>
-
   <iframe
     id="form"
     src="https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/viewform"
@@ -191,5 +176,8 @@
     frameborder="0"
     style="display:none"
   ></iframe>
+  <script>
+    document.addEventListener("DOMContentLoaded", checkLocation);
+  </script>
 </body>
 </html>
