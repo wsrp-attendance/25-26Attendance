@@ -68,31 +68,16 @@
   <iframe name="hidden_iframe" style="display:none;"></iframe>
 
   <script>
-    const form = document.getElementById("gpsForm");
-
-    form.addEventListener("submit", function(event) {
-      event.preventDefault();  // Stop normal submit
-
-      if (!navigator.geolocation) {
-        alert("Geolocation is not supported by your browser.");
-        return;
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        position => {
-          // Set hidden fields
-          document.getElementById("lat").value = position.coords.latitude;
-          document.getElementById("lng").value = position.coords.longitude;
-
-          // Now submit the form programmatically
-          form.submit();
-        },
-        error => {
-          alert("Failed to get GPS location. Please allow location access to submit your check-in.");
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    });
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        document.getElementById("lat").value = position.coords.latitude;
+        document.getElementById("lng").value = position.coords.longitude;
+      },
+      error => {
+        alert("Failed to get GPS location. Please allow location access to submit your check-in.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   </script>
 </body>
 </html>
