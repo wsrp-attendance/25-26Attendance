@@ -1,192 +1,84 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Location-Based Form Access</title>
+  <title>WSRP Check-In with GPS</title>
   <style>
-    #retryBtn {
-      margin-top: 10px;
-      cursor: pointer;
-      padding: 6px 12px;
-      font-size: 14px;
-      display: none;
-    }
-    .spinner {
-      margin: 10px auto 20px auto;
-      width: 40px;
-      height: 40px;
-      border: 5px solid #ccc;
-      border-top-color: #007bff;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
-    #errorDetails {
-      display: none;
-      margin-top: 8px;
-      font-family: monospace;
-      font-size: 0.9em;
-      background: #f8f8f8;
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 400px;
+      margin: 40px auto;
+      padding: 20px;
       border: 1px solid #ddd;
-      padding: 8px;
-      white-space: pre-wrap;
-      max-height: 150px;
-      overflow-y: auto;
-      border-radius: 4px;
+      border-radius: 8px;
+      background: #f9f9f9;
     }
-    #toggleDetails {
-      color: #007bff;
+    label {
+      font-weight: bold;
+    }
+    input[type="text"], select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 4px;
+      margin-bottom: 16px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+    button {
+      background-color: #007bff;
+      color: white;
+      padding: 12px;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
       cursor: pointer;
-      user-select: none;
-      text-decoration: underline;
-      font-size: 0.9em;
-      margin-top: 8px;
-      display: inline-block;
+      width: 100%;
+    }
+    button:hover {
+      background-color: #0056b3;
     }
   </style>
-  <script>
-    const schoolLat = 42.06099;
-    const schoolLng = -87.94404;
-    const maxDistanceMeters = 100;
-
-    function haversine(lat1, lon1, lat2, lon2) {
-      const R = 6371000;
-      const toRad = x => x * Math.PI / 180;
-      const dLat = toRad(lat2 - lat1);
-      const dLon = toRad(lon2 - lon1);
-      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    }
-
-    function toggleErrorDetails() {
-      const details = document.getElementById('errorDetails');
-      const toggle = document.getElementById('toggleDetails');
-      if (details.style.display === 'none') {
-        details.style.display = 'block';
-        toggle.textContent = 'Hide Details ▲';
-      } else {
-        details.style.display = 'none';
-        toggle.textContent = 'Show Details ▼';
-      }
-    }
-
-    async function checkLocation() {
-      const status = document.getElementById("status");
-      const formFrame = document.getElementById("form");
-      const retryBtn = document.getElementById("retryBtn");
-      const spinner = document.getElementById("spinner");
-      const errorDetails = document.getElementById("errorDetails");
-      const toggleDetails = document.getElementById("toggleDetails");
-
-      // Reset UI
-      formFrame.style.display = "none";
-      retryBtn.style.display = "none";
-      errorDetails.style.display = "none";
-      toggleDetails.style.display = "none";
-      status.textContent = "Checking your location...";
-      spinner.style.display = "block";
-
-      if (!navigator.geolocation) {
-        spinner.style.display = "none";
-        status.textContent = "Geolocation is not supported by your browser.";
-        retryBtn.style.display = "inline-block";
-        return;
-      }
-
-      try {
-        const permission = await navigator.permissions.query({ name: 'geolocation' });
-        if (permission.state === 'denied') {
-          spinner.style.display = "none";
-          status.innerHTML = "Location permission is blocked. Please enable it in your browser settings and reload the page.";
-          retryBtn.style.display = "inline-block";
-          return;
-        }
-      } catch (e) {
-        // Continue if Permissions API not supported
-      }
-
-      navigator.geolocation.getCurrentPosition(
-        position => {
-          spinner.style.display = "none";
-
-          const { latitude, longitude } = position.coords;
-          const distance = haversine(latitude, longitude, schoolLat, schoolLng);
-
-          if (distance <= maxDistanceMeters) {
-            status.textContent = "Location verified. Welcome to the WSRP Shop. You may complete the form.";
-            formFrame.style.display = "block";
-          } else {
-            status.textContent = "You are not on school grounds. Form access is restricted.";
-            retryBtn.style.display = "inline-block";
-          }
-        },
-        error => {
-          spinner.style.display = "none";
-
-          let friendlyMessage = "An unknown error occurred while retrieving your location.";
-          let detailsMessage = `Error code: ${error.code}\nMessage: ${error.message}`;
-
-          switch (error.code) {
-            case error.PERMISSION_DENIED:
-              friendlyMessage = "Location permission denied. Please allow access and reload the page.";
-              break;
-            case error.POSITION_UNAVAILABLE:
-              friendlyMessage = "Location information is unavailable. Try again later.";
-              break;
-            case error.TIMEOUT:
-              friendlyMessage = "Location request timed out. Please retry.";
-              break;
-          }
-
-          if (error.code === error.PERMISSION_DENIED) {
-            status.innerHTML = `${friendlyMessage}<br><br><b>Tip:</b> Check your browser's site settings.`;
-          } else {
-            status.textContent = friendlyMessage;
-          }
-
-          retryBtn.style.display = "inline-block";
-
-          errorDetails.textContent = detailsMessage;
-          errorDetails.style.display = "none";
-          toggleDetails.style.display = "inline-block";
-          toggleDetails.textContent = "Show Details ▼";
-
-          console.error("Geolocation error:", error);
-        },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-      );
-    }
-  </script>
 </head>
 <body>
-  <h2>WSRP Student/Mentor Check-In</h2>
+  <h2>WSRP Check-In</h2>
 
-  <p id="status" aria-live="polite">Checking your location...</p>
+  <form id="gpsForm"
+        action="https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/formResponse"
+        method="POST" target="hidden_iframe" novalidate>
 
-  <div id="spinner" class="spinner" style="display:none"></div>
+    <!-- Hidden inputs for GPS -->
+    <input type="hidden" name="entry.1958119656" id="lat">
+    <input type="hidden" name="entry.1070061203" id="lng">
 
-  <!-- Retry reloads the page to ensure Safari permission works -->
-  <button id="retryBtn" onclick="location.reload()">Retry Location Check</button>
+    <!-- Visible fields -->
+    <label for="name">Name:</label>
+    <input type="text" name="entry.1050040896" id="name" required>
 
-  <span id="toggleDetails" onclick="toggleErrorDetails()" style="display:none" role="button" tabindex="0" aria-pressed="false" aria-label="Toggle detailed error message"></span>
+    <label for="role">Role:</label>
+    <select name="entry.279570856" id="role" required>
+      <option value="">Select...</option>
+      <option value="Student">Student</option>
+      <option value="Mentor">Mentor</option>
+    </select>
 
-  <pre id="errorDetails"></pre>
+    <button type="submit">Check In</button>
+  </form>
 
-  <iframe
-    id="form"
-    src="https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/viewform"
-    width="100%"
-    height="800"
-    frameborder="0"
-    style="display:none"
-  ></iframe>
+  <iframe name="hidden_iframe" style="display:none;"></iframe>
 
   <script>
-    document.addEventListener("DOMContentLoaded", checkLocation);
+    // Get GPS coordinates and fill hidden inputs before form submit
+    navigator.geolocation.getCurrentPosition(
+      position => {
+        document.getElementById("lat").value = position.coords.latitude;
+        document.getElementById("lng").value = position.coords.longitude;
+      },
+      error => {
+        alert("Failed to get GPS location. Please allow location access to submit your check-in.");
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
   </script>
 </body>
 </html>
