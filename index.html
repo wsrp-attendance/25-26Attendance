@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Location-Based Form Access</title>
+  <title>Location-Based Form Access with GPS Capture</title>
   <style>
     #retryBtn {
       margin-top: 10px;
@@ -50,18 +50,21 @@
     const schoolLng = -87.94404;
     const maxDistanceMeters = 100;
 
-    const hiddenFormAction = "https://docs.google.com/forms/d/e/YOUR_HIDDEN_FORM_ID/formResponse";
-
     function haversine(lat1, lon1, lat2, lon2) {
-      const R = 6371000;
+      const R = 6371000; // meters
       const toRad = x => x * Math.PI / 180;
       const dLat = toRad(lat2 - lat1);
       const dLon = toRad(lon2 - lon1);
-      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      const a = Math.sin(dLat / 2) ** 2 +
                 Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                Math.sin(dLon / 2) ** 2;
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
+    }
+
+    // Simple UID generator - returns string like 'UID-xxxxxxxxxx'
+    function generateUID() {
+      return 'UID-' + Math.random().toString(36).substring(2, 12);
     }
 
     function toggleErrorDetails() {
@@ -76,21 +79,19 @@
       }
     }
 
-    function generateUID() {
-      return 'uid-' + Math.random().toString(36).substr(2, 9);
-    }
-
     function submitHiddenForm(uid, lat, lng) {
+      const hiddenFormAction = "https://docs.google.com/forms/d/e/1FAIpQLSey9ENixvSepj6ac5cLKZ7OKlcg0lf45sJDQ9q35j40L9H8BQ/formResponse";
+
+      const fields = {
+        "entry.185482874": uid,
+        "entry.1366409067": lat,
+        "entry.376709078": lng
+      };
+
       const form = document.createElement("form");
       form.method = "POST";
       form.action = hiddenFormAction;
       form.style.display = "none";
-
-      const fields = {
-        "entry.185482874": uid,       // UID field
-        "entry.1366409067": lat,      // Latitude field
-        "entry.37670907": lng         // Longitude field
-      };
 
       for (const [key, value] of Object.entries(fields)) {
         const input = document.createElement("input");
@@ -105,7 +106,7 @@
       setTimeout(() => form.remove(), 1000);
     }
 
-    async function checkLocation() {
+    async function checkLocationAndLoadForm() {
       const status = document.getElementById("status");
       const formFrame = document.getElementById("form");
       const retryBtn = document.getElementById("retryBtn");
@@ -137,7 +138,7 @@
           return;
         }
       } catch (e) {
-        // Continue if Permissions API not supported
+        // Permissions API not supported, continue
       }
 
       navigator.geolocation.getCurrentPosition(
@@ -148,16 +149,19 @@
           const distance = haversine(latitude, longitude, schoolLat, schoolLng);
 
           if (distance <= maxDistanceMeters) {
-            status.textContent = "Location verified. Welcome to the WSRP Shop. You may complete the form.";
-            formFrame.style.display = "block";
-
-            // Generate UID and submit hidden form with GPS
             const uid = generateUID();
+
+            // Submit hidden form with UID + GPS
             submitHiddenForm(uid, latitude, longitude);
 
-            // Optional: store UID locally if you want to reference it later
-            // localStorage.setItem('wsrp_uid', uid);
+            status.textContent = "Location verified. Welcome! You may complete the form.";
 
+            // Append UID as query param for user to fill visible form (optional)
+            // If your visible form has a UID field, prefill URL like:
+            // const visibleFormURL = `https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/viewform?entry.1958119656=${encodeURIComponent(uid)}`;
+
+            // For now, just load form normally:
+            formFrame.style.display = "block";
           } else {
             status.textContent = "You are not on school grounds. Form access is restricted.";
             retryBtn.style.display = "inline-block";
@@ -199,8 +203,6 @@
         { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
       );
     }
-
-    document.addEventListener("DOMContentLoaded", checkLocation);
   </script>
 </head>
 <body>
@@ -210,7 +212,6 @@
 
   <div id="spinner" class="spinner" style="display:none"></div>
 
-  <!-- Retry reloads the page to ensure Safari permission works -->
   <button id="retryBtn" onclick="location.reload()">Retry Location Check</button>
 
   <span id="toggleDetails" onclick="toggleErrorDetails()" style="display:none" role="button" tabindex="0" aria-pressed="false" aria-label="Toggle detailed error message"></span>
@@ -225,5 +226,9 @@
     frameborder="0"
     style="display:none"
   ></iframe>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", checkLocationAndLoadForm);
+  </script>
 </body>
 </html>
