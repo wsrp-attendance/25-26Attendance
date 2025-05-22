@@ -49,7 +49,6 @@
     const schoolLat = 42.06099;
     const schoolLng = -87.94404;
     const maxDistanceMeters = 100;
-    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
 
     function haversine(lat1, lon1, lat2, lon2) {
       const R = 6371000;
@@ -102,10 +101,7 @@
         const permission = await navigator.permissions.query({ name: 'geolocation' });
         if (permission.state === 'denied') {
           spinner.style.display = "none";
-          let safariNote = isSafari
-            ? `<br><br><b>Safari Tip:</b> Click “Safari > Settings for This Website…” and set Location Access to “Allow.”`
-            : '';
-          status.innerHTML = "Location permission is blocked. Please enable it in your browser settings and reload the page." + safariNote;
+          status.innerHTML = "Location permission is blocked. Please enable it in your browser settings and reload the page.";
           retryBtn.style.display = "inline-block";
           return;
         }
@@ -116,6 +112,7 @@
       navigator.geolocation.getCurrentPosition(
         position => {
           spinner.style.display = "none";
+
           const { latitude, longitude } = position.coords;
           const distance = haversine(latitude, longitude, schoolLat, schoolLng);
 
@@ -129,17 +126,13 @@
         },
         error => {
           spinner.style.display = "none";
+
           let friendlyMessage = "An unknown error occurred while retrieving your location.";
           let detailsMessage = `Error code: ${error.code}\nMessage: ${error.message}`;
 
           switch (error.code) {
             case error.PERMISSION_DENIED:
-              friendlyMessage = "Location permission denied. Please allow access and reload the page.";
-              if (isSafari) {
-                friendlyMessage += "<br><br><b>Safari Tip:</b> Click “Safari > Settings for This Website…” and set Location Access to “Allow.”";
-              } else {
-                friendlyMessage += "<br><br><b>Tip:</b> Check your browser's site settings.";
-              }
+              friendlyMessage = "Location permission denied. Please allow access and reload the page.<br><br><b>Tip:</b> Check your browser's site settings.";
               break;
             case error.POSITION_UNAVAILABLE:
               friendlyMessage = "Location information is unavailable. Try again later.";
@@ -154,6 +147,7 @@
           errorDetails.textContent = detailsMessage;
           toggleDetails.style.display = "inline-block";
           toggleDetails.textContent = "Show Details ▼";
+
           console.error("Geolocation error:", error);
         },
         { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
