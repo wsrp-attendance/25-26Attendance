@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Location-Based Form Access with GPS & UID</title>
+  <title>Location-Based Form Access with GPS Capture</title>
   <style>
     #retryBtn {
       margin-top: 10px;
@@ -45,38 +45,60 @@
       display: inline-block;
     }
   </style>
+</head>
+<body>
+  <h2>WSRP Student/Mentor Check-In</h2>
+
+  <p id="status" aria-live="polite">Checking your location...</p>
+
+  <div id="spinner" class="spinner" style="display:none"></div>
+
+  <button id="retryBtn" onclick="location.reload()">Retry Location Check</button>
+
+  <span id="toggleDetails" onclick="toggleErrorDetails()" style="display:none" role="button" tabindex="0" aria-pressed="false" aria-label="Toggle detailed error message"></span>
+
+  <pre id="errorDetails"></pre>
+
+  <!-- Visible Google Form iframe -->
+  <iframe
+    id="form"
+    src="https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/viewform"
+    width="100%"
+    height="800"
+    frameborder="0"
+    style="display:none"
+  ></iframe>
+
   <script>
     const schoolLat = 42.06099;
     const schoolLng = -87.94404;
     const maxDistanceMeters = 100;
 
-    // Hidden form POST URL (note: use /formResponse for direct submission)
-    const hiddenFormURL = "https://docs.google.com/forms/d/e/1FAIpQLSey9ENixvSepj6ac5cLKZ7OKlcg0lf45sJDQ9q35j40L9H8BQ/formResponse";
+    // Your visible form UID field entry ID
+    const visibleUIDEntry = 'entry.1958119656';
 
-    // Hidden form entry IDs
-    const hiddenUIDEntry = "entry.185482874";
-    const hiddenLatEntry = "entry.1366409067";
-    const hiddenLngEntry = "entry.376709078";
+    // Hidden form submission info
+    const hiddenFormURL = 'https://docs.google.com/forms/d/e/1FAIpQLSey9ENixvSepj6ac5cLKZ7OKlcg0lf45sJDQ9q35j40L9H8BQ/formResponse';
+    const hiddenUIDEntry = 'entry.185482874';
+    const hiddenLatEntry = 'entry.1366409067';
+    const hiddenLngEntry = 'entry.376709078';
 
-    // Visible form base URL and UID entry
-    const visibleFormBaseURL = "https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/viewform";
-    const visibleUIDEntry = "entry.1958119656";
+    // Generate a random UID for this session (can be improved to persistent if needed)
+    function generateUID() {
+      return 'UID-' + Math.random().toString(36).substr(2, 9);
+    }
 
+    // Haversine formula to calculate distance between two lat/lng points
     function haversine(lat1, lon1, lat2, lon2) {
-      const R = 6371000;
+      const R = 6371000; // meters
       const toRad = x => x * Math.PI / 180;
       const dLat = toRad(lat2 - lat1);
       const dLon = toRad(lon2 - lon1);
-      const a = Math.sin(dLat / 2) ** 2 +
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
                 Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-                Math.sin(dLon / 2) ** 2;
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
-    }
-
-    function generateUID() {
-      // Generate a random 8-digit hex string as UID
-      return Math.floor((1 + Math.random()) * 0x100000000).toString(16).substring(1);
     }
 
     function toggleErrorDetails() {
@@ -92,23 +114,22 @@
     }
 
     async function submitHiddenForm(uid, lat, lng) {
-      const params = new URLSearchParams();
-      params.append(hiddenUIDEntry, uid);
-      params.append(hiddenLatEntry, lat);
-      params.append(hiddenLngEntry, lng);
+      const formData = new URLSearchParams();
+      formData.append(hiddenUIDEntry, uid);
+      formData.append(hiddenLatEntry, lat);
+      formData.append(hiddenLngEntry, lng);
 
       try {
         await fetch(hiddenFormURL, {
           method: 'POST',
-          mode: 'no-cors',
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded'
+            'Content-Type': 'application/x-www-form-urlencoded',
           },
-          body: params.toString()
+          body: formData.toString()
         });
-        console.log("Hidden form submitted");
-      } catch (e) {
-        console.warn("Hidden form submission failed (likely due to CORS)", e);
+        console.log('Hidden form submitted');
+      } catch (error) {
+        console.error('Error submitting hidden form:', error);
       }
     }
 
@@ -144,7 +165,7 @@
           return;
         }
       } catch (e) {
-        // Permissions API not supported, continue
+        // Continue if Permissions API not supported
       }
 
       navigator.geolocation.getCurrentPosition(
@@ -157,16 +178,16 @@
           if (distance <= maxDistanceMeters) {
             status.textContent = "Location verified. Welcome to the WSRP Shop. You may complete the form.";
 
-            // Generate UID
+            // Generate UID for this user/session
             const uid = generateUID();
 
-            // Submit hidden form with UID + GPS
-            await submitHiddenForm(uid, latitude, longitude);
-
-            // Prefill visible form with UID and show iframe
-            const visibleFormURL = `${visibleFormBaseURL}?${visibleUIDEntry}=${encodeURIComponent(uid)}`;
-            formFrame.src = visibleFormURL;
+            // Show visible form, prefill UID field via URL params
+            const prefillUID = encodeURIComponent(uid);
+            formFrame.src = `https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/viewform?usp=pp_url&${visibleUIDEntry}=${prefillUID}`;
             formFrame.style.display = "block";
+
+            // Submit hidden form with UID + GPS
+            await submitHiddenForm(uid, latitude.toFixed(6), longitude.toFixed(6));
           } else {
             status.textContent = "You are not on school grounds. Form access is restricted.";
             retryBtn.style.display = "inline-block";
@@ -208,31 +229,7 @@
         { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
       );
     }
-  </script>
-</head>
-<body>
-  <h2>WSRP Student/Mentor Check-In</h2>
 
-  <p id="status" aria-live="polite">Checking your location...</p>
-
-  <div id="spinner" class="spinner" style="display:none"></div>
-
-  <!-- Retry reloads the page to ensure Safari permission works -->
-  <button id="retryBtn" onclick="location.reload()">Retry Location Check</button>
-
-  <span id="toggleDetails" onclick="toggleErrorDetails()" style="display:none" role="button" tabindex="0" aria-pressed="false" aria-label="Toggle detailed error message"></span>
-
-  <pre id="errorDetails"></pre>
-
-  <iframe
-    id="form"
-    width="100%"
-    height="800"
-    frameborder="0"
-    style="display:none"
-  ></iframe>
-
-  <script>
     document.addEventListener("DOMContentLoaded", checkLocation);
   </script>
 </body>
