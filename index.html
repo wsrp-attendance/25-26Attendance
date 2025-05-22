@@ -22,52 +22,38 @@
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
-    #errorDetails {
-      display: none;
-      margin-top: 8px;
-      font-family: monospace;
-      font-size: 0.9em;
-      background: #f8f8f8;
-      border: 1px solid #ddd;
-      padding: 8px;
-      white-space: pre-wrap;
-      max-height: 150px;
-      overflow-y: auto;
-      border-radius: 4px;
-    }
-    #toggleDetails {
-      color: #007bff;
-      cursor: pointer;
-      user-select: none;
-      text-decoration: underline;
-      font-size: 0.9em;
-      margin-top: 8px;
-      display: inline-block;
-    }
   </style>
 </head>
 <body>
   <h2>WSRP Student/Mentor Check-In</h2>
 
   <p id="status" aria-live="polite">Checking your location...</p>
-
   <div id="spinner" class="spinner" style="display:none"></div>
-
   <button id="retryBtn" onclick="location.reload()">Retry Location Check</button>
-
-  <span id="toggleDetails" onclick="toggleErrorDetails()" style="display:none" role="button" tabindex="0" aria-pressed="false" aria-label="Toggle detailed error message"></span>
-
-  <pre id="errorDetails"></pre>
 
   <!-- Visible Google Form iframe -->
   <iframe
     id="form"
-    src="https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/viewform"
     width="100%"
     height="800"
     frameborder="0"
     style="display:none"
   ></iframe>
+
+  <!-- Hidden form to send UID + GPS to hidden Google Form -->
+  <form
+    id="hiddenForm"
+    action="https://docs.google.com/forms/d/e/1FAIpQLSey9ENixvSepj6ac5cLKZ7OKlcg0lf45sJDQ9q35j40L9H8BQ/formResponse"
+    method="POST"
+    target="hidden_iframe"
+    style="display:none;"
+  >
+    <input type="hidden" name="entry.185482874" id="hiddenUID" value="">
+    <input type="hidden" name="entry.1366409067" id="hiddenLat" value="">
+    <input type="hidden" name="entry.376709078" id="hiddenLng" value="">
+  </form>
+
+  <iframe name="hidden_iframe" style="display:none;"></iframe>
 
   <script>
     const schoolLat = 42.06099;
@@ -77,160 +63,110 @@
     // Your visible form UID field entry ID
     const visibleUIDEntry = 'entry.1958119656';
 
-    // Hidden form submission info
-    const hiddenFormURL = 'https://docs.google.com/forms/d/e/1FAIpQLSey9ENixvSepj6ac5cLKZ7OKlcg0lf45sJDQ9q35j40L9H8BQ/formResponse';
-    const hiddenUIDEntry = 'entry.185482874';
-    const hiddenLatEntry = 'entry.1366409067';
-    const hiddenLngEntry = 'entry.376709078';
+    // Visible Google Form URL (without parameters)
+    const visibleFormBaseURL = 'https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/viewform';
 
-    // Generate a random UID for this session (can be improved to persistent if needed)
     function generateUID() {
       return 'UID-' + Math.random().toString(36).substr(2, 9);
     }
 
-    // Haversine formula to calculate distance between two lat/lng points
+    function toRad(deg) {
+      return deg * Math.PI / 180;
+    }
+
     function haversine(lat1, lon1, lat2, lon2) {
       const R = 6371000; // meters
-      const toRad = x => x * Math.PI / 180;
       const dLat = toRad(lat2 - lat1);
       const dLon = toRad(lon2 - lon1);
-      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
                 Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                Math.sin(dLon/2) * Math.sin(dLon/2);
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     }
 
-    function toggleErrorDetails() {
-      const details = document.getElementById('errorDetails');
-      const toggle = document.getElementById('toggleDetails');
-      if (details.style.display === 'none') {
-        details.style.display = 'block';
-        toggle.textContent = 'Hide Details ▲';
-      } else {
-        details.style.display = 'none';
-        toggle.textContent = 'Show Details ▼';
-      }
+    function showError(message) {
+      document.getElementById('status').textContent = message;
+      document.getElementById('retryBtn').style.display = 'inline-block';
+      document.getElementById('spinner').style.display = 'none';
     }
 
-    async function submitHiddenForm(uid, lat, lng) {
-      const formData = new URLSearchParams();
-      formData.append(hiddenUIDEntry, uid);
-      formData.append(hiddenLatEntry, lat);
-      formData.append(hiddenLngEntry, lng);
+    function submitHiddenForm(uid, lat, lng) {
+      document.getElementById('hiddenUID').value = uid;
+      document.getElementById('hiddenLat').value = lat;
+      document.getElementById('hiddenLng').value = lng;
 
-      try {
-        await fetch(hiddenFormURL, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: formData.toString()
-        });
-        console.log('Hidden form submitted');
-      } catch (error) {
-        console.error('Error submitting hidden form:', error);
-      }
+      document.getElementById('hiddenForm').submit();
+      console.log('Hidden form submitted with UID:', uid, 'Lat:', lat, 'Lng:', lng);
     }
 
-    async function checkLocation() {
-      const status = document.getElementById("status");
-      const formFrame = document.getElementById("form");
-      const retryBtn = document.getElementById("retryBtn");
-      const spinner = document.getElementById("spinner");
-      const errorDetails = document.getElementById("errorDetails");
-      const toggleDetails = document.getElementById("toggleDetails");
+    function prefillVisibleForm(uid) {
+      const formFrame = document.getElementById('form');
+      const prefillURL = `${visibleFormBaseURL}?${visibleUIDEntry}=${encodeURIComponent(uid)}`;
+      formFrame.src = prefillURL;
+      formFrame.style.display = 'block';
+    }
 
-      // Reset UI
-      formFrame.style.display = "none";
-      retryBtn.style.display = "none";
-      errorDetails.style.display = "none";
-      toggleDetails.style.display = "none";
-      status.textContent = "Checking your location...";
-      spinner.style.display = "block";
+    function checkLocation() {
+      const status = document.getElementById('status');
+      const retryBtn = document.getElementById('retryBtn');
+      const spinner = document.getElementById('spinner');
+      const formFrame = document.getElementById('form');
+
+      status.textContent = 'Checking your location...';
+      retryBtn.style.display = 'none';
+      spinner.style.display = 'block';
+      formFrame.style.display = 'none';
 
       if (!navigator.geolocation) {
-        spinner.style.display = "none";
-        status.textContent = "Geolocation is not supported by your browser.";
-        retryBtn.style.display = "inline-block";
+        showError('Geolocation is not supported by your browser.');
         return;
       }
 
-      try {
-        const permission = await navigator.permissions.query({ name: 'geolocation' });
-        if (permission.state === 'denied') {
-          spinner.style.display = "none";
-          status.innerHTML = "Location permission is blocked. Please enable it in your browser settings and reload the page.";
-          retryBtn.style.display = "inline-block";
-          return;
-        }
-      } catch (e) {
-        // Continue if Permissions API not supported
-      }
-
       navigator.geolocation.getCurrentPosition(
-        async position => {
-          spinner.style.display = "none";
+        position => {
+          spinner.style.display = 'none';
 
-          const { latitude, longitude } = position.coords;
+          const latitude = position.coords.latitude;
+          const longitude = position.coords.longitude;
           const distance = haversine(latitude, longitude, schoolLat, schoolLng);
 
           if (distance <= maxDistanceMeters) {
-            status.textContent = "Location verified. Welcome to the WSRP Shop. You may complete the form.";
+            status.textContent = 'Location verified. You may complete the form.';
 
-            // Generate UID for this user/session
             const uid = generateUID();
 
-            // Show visible form, prefill UID field via URL params
-            const prefillUID = encodeURIComponent(uid);
-            formFrame.src = `https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/viewform?usp=pp_url&${visibleUIDEntry}=${prefillUID}`;
-            formFrame.style.display = "block";
+            // Show visible form with UID prefilled
+            prefillVisibleForm(uid);
 
-            // Submit hidden form with UID + GPS
-            await submitHiddenForm(uid, latitude.toFixed(6), longitude.toFixed(6));
+            // Submit hidden form with UID and GPS
+            submitHiddenForm(uid, latitude.toFixed(6), longitude.toFixed(6));
           } else {
-            status.textContent = "You are not on school grounds. Form access is restricted.";
-            retryBtn.style.display = "inline-block";
+            showError('You are not on school grounds. Form access is restricted.');
           }
         },
         error => {
-          spinner.style.display = "none";
-
-          let friendlyMessage = "An unknown error occurred while retrieving your location.";
-          let detailsMessage = `Error code: ${error.code}\nMessage: ${error.message}`;
-
+          spinner.style.display = 'none';
           switch (error.code) {
             case error.PERMISSION_DENIED:
-              friendlyMessage = "Location permission denied. Please allow access and reload the page.";
+              showError('Location permission denied. Please allow access and reload the page.');
               break;
             case error.POSITION_UNAVAILABLE:
-              friendlyMessage = "Location information is unavailable. Try again later.";
+              showError('Location information is unavailable. Try again later.');
               break;
             case error.TIMEOUT:
-              friendlyMessage = "Location request timed out. Please retry.";
+              showError('Location request timed out. Please retry.');
+              break;
+            default:
+              showError('An unknown error occurred while retrieving your location.');
               break;
           }
-
-          if (error.code === error.PERMISSION_DENIED) {
-            status.innerHTML = `${friendlyMessage}<br><br><b>Tip:</b> Check your browser's site settings.`;
-          } else {
-            status.textContent = friendlyMessage;
-          }
-
-          retryBtn.style.display = "inline-block";
-
-          errorDetails.textContent = detailsMessage;
-          errorDetails.style.display = "none";
-          toggleDetails.style.display = "inline-block";
-          toggleDetails.textContent = "Show Details ▼";
-
-          console.error("Geolocation error:", error);
         },
-        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
 
-    document.addEventListener("DOMContentLoaded", checkLocation);
+    document.addEventListener('DOMContentLoaded', checkLocation);
   </script>
 </body>
 </html>
