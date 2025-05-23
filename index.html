@@ -66,8 +66,11 @@
     // Visible Google Form URL (without parameters)
     const visibleFormBaseURL = 'https://docs.google.com/forms/d/e/1FAIpQLSfEX1DbIRA3BePUu94qDiZqy5ho2m6pkoVCLIcCAAdOE7osZA/viewform';
 
+    // Improved UID generation function with timestamp + random string
     function generateUID() {
-      return 'UID-' + Math.random().toString(36).substr(2, 9);
+      const timestamp = Date.now(); // milliseconds since epoch
+      const randomStr = Math.random().toString(36).substr(2, 9);
+      return `UID-${timestamp}-${randomStr}`;
     }
 
     function toRad(deg) {
