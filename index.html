@@ -11,7 +11,7 @@
       display: none;
     }
     #submitHiddenFormBtn {
-      margin-top: 10px;
+      margin: 10px 0 20px 0;
       padding: 8px 16px;
       font-size: 16px;
       cursor: pointer;
@@ -35,6 +35,10 @@
   <h2>WSRP Student/Mentor Check-In</h2>
 
   <p id="status" aria-live="polite">Checking your location...</p>
+
+  <!-- Complete Check-in button moved here -->
+  <button id="submitHiddenFormBtn">Complete Check-in</button>
+
   <div id="spinner" class="spinner" style="display:none"></div>
   <button id="retryBtn" onclick="location.reload()">Retry Location Check</button>
 
@@ -46,9 +50,6 @@
     frameborder="0"
     style="display:none"
   ></iframe>
-
-  <!-- Button user clicks after submitting visible form -->
-  <button id="submitHiddenFormBtn">Complete Check-in</button>
 
   <!-- Hidden form to send UID + GPS to hidden Google Form -->
   <form
